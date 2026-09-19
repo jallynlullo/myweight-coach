@@ -969,4 +969,32 @@ function toast(message) {
    DÉMARRAGE
 ========================= */
 
+async function askAI(message) {
+  try {
+    const response = await fetch(
+      "https://mywait-a.<TON-DOMAINE>.workers.dev",
+      {
+        method: "POST",
+        headers: {
+          "Content-Type": "application/json"
+        },
+        body: JSON.stringify({
+          message
+        })
+      }
+    );
+
+    const data = await response.json();
+
+    if (!response.ok) {
+      throw new Error(data.error || "Erreur du serveur");
+    }
+
+    return data.answer;
+
+  } catch (error) {
+    console.error(error);
+    return "Je n'arrive pas à contacter mon coach IA pour le moment.";
+  }
+}
 render();
