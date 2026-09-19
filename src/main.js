@@ -856,7 +856,7 @@ async function askAI(message) {
       "Je n'ai pas reçu de réponse."
     );
 
-  } catch (error) {
+   } catch (error) {
 
     console.error(
       "Erreur IA :",
@@ -864,8 +864,8 @@ async function askAI(message) {
     );
 
     return (
-      "Je n'arrive pas à contacter " +
-      "mon coach IA pour le moment."
+      "ERREUR IA : " +
+      error.message
     );
   }
 }
