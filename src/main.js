@@ -385,3 +385,118 @@ function weight() {
 }
 
 function formatDate(date) {
+  return new Date(date).toLocaleDateString("fr-FR", {
+    day: "2-digit",
+    month: "2-digit",
+    year: "numeric"
+  });
+}
+
+function listen() {
+  const SpeechRecognition =
+    window.SpeechRecognition ||
+    window.webkitSpeechRecognition;
+
+  if (!SpeechRecognition) {
+    toast("La dictée vocale n’est pas disponible ici.");
+    return;
+  }
+
+  if (rec) {
+    rec.stop();
+    return;
+  }
+
+  rec = new SpeechRecognition();
+  rec.lang = "fr-FR";
+  rec.interimResults = false;
+
+  rec.onresult = event => {
+    const text = event.results[0][0].transcript;
+
+    toast("J’ai entendu : " + text);
+
+    voice(text);
+  };
+
+  rec.onerror = event => {
+    toast("Micro : " + event.error);
+  };
+
+  rec.onend = () => {
+    rec = null;
+
+    const button = document.querySelector("#mic");
+
+    if (button) {
+      button.textContent = "🎙️";
+    }
+  };
+
+  const button = document.querySelector("#mic");
+
+  if (button) {
+    button.textContent = "⏹️";
+  }
+
+  toast("Je t’écoute…");
+
+  rec.start();
+}
+
+function voice(text) {
+  const weightMatch = text.match(
+    /(?:poids|pèse|pesée).*?(\d+[,.]?\d*)\s*kg/i
+  );
+
+  if (weightMatch) {
+    s.weight = Number(
+      weightMatch[1].replace(",", ".")
+    );
+
+    s.weights.push({
+      date: new Date().toISOString(),
+      weight: s.weight
+    });
+
+    save();
+    render();
+
+    toast("Poids enregistré");
+
+    return;
+  }
+
+  const kcalMatch = text.match(
+    /(\d+)\s*(?:kcal|calories)/i
+  );
+
+  if (/mangé|mange|repas|déjeun|dîné/i.test(text)) {
+    const kcal = kcalMatch
+      ? Number(kcalMatch[1])
+      : 0;
+
+    s.meals.push({
+      name: text,
+      kcal,
+      p: 0,
+      c: 0,
+      f: 0
+    });
+
+    s.eaten += kcal;
+
+    save();
+    render();
+
+    toast("Repas ajouté");
+
+    return;
+  }
+
+  toast(
+    "Commande reçue. L’analyse IA arrive dans la prochaine version."
+  );
+}
+
+render();
