@@ -20,13 +20,21 @@ try {
   localStorage.removeItem(KEY);
 }
 
-let s = { ...defaults, ...saved };
+let s = {
+  ...defaults,
+  ...saved
+};
+
 let rec = null;
 let currentPage = "home";
 
 function save() {
   localStorage.setItem(KEY, JSON.stringify(s));
 }
+
+/* =========================
+   AFFICHAGE PRINCIPAL
+========================= */
 
 function render() {
   const app = document.querySelector("#app");
@@ -40,6 +48,10 @@ function render() {
   }
 }
 
+/* =========================
+   ACCUEIL
+========================= */
+
 function renderHome(app) {
   app.innerHTML = `
     <div class="app">
@@ -49,6 +61,7 @@ function renderHome(app) {
           <small>MYWEIGHT COACH</small>
           <h1>Aujourd’hui</h1>
         </div>
+
         <button id="reset">↻</button>
       </header>
 
@@ -57,8 +70,12 @@ function renderHome(app) {
         <section class="card hero">
           <div>
             <span>Poids actuel</span>
+
             <strong>${s.weight} kg</strong>
-            <small>Objectif ${s.goal} kg</small>
+
+            <small>
+              Objectif ${s.goal} kg
+            </small>
           </div>
 
           <div class="ring">
@@ -95,7 +112,10 @@ function renderHome(app) {
 
           <div class="title">
             <h2>Repas du jour</h2>
-            <button id="meal">+ Ajouter</button>
+
+            <button id="meal">
+              + Ajouter
+            </button>
           </div>
 
           ${
@@ -104,8 +124,10 @@ function renderHome(app) {
                   .map(
                     (m, i) => `
                       <div class="meal">
+
                         <div>
-                          <b>${m.name}</b>
+                          <b>${escapeHTML(m.name)}</b>
+
                           <small>
                             ${m.kcal} kcal ·
                             P ${m.p}g ·
@@ -113,7 +135,14 @@ function renderHome(app) {
                             L ${m.f}g
                           </small>
                         </div>
-                        <button data-d="${i}">×</button>
+
+                        <button
+                          data-meal-delete="${i}"
+                          aria-label="Supprimer le repas"
+                        >
+                          ×
+                        </button>
+
                       </div>
                     `
                   )
@@ -126,11 +155,18 @@ function renderHome(app) {
         <section class="card">
 
           <div class="title">
+
             <h2>Poids</h2>
-            <button id="weight">+ Pesée</button>
+
+            <button id="weight">
+              + Pesée
+            </button>
+
           </div>
 
-          <strong class="big">${s.weight} kg</strong>
+          <strong class="big">
+            ${s.weight} kg
+          </strong>
 
         </section>
 
@@ -138,7 +174,13 @@ function renderHome(app) {
 
       ${navigation("home")}
 
-      <button class="mic" id="mic">🎙️</button>
+      <button
+        class="mic"
+        id="mic"
+        aria-label="Commande vocale"
+      >
+        🎙️
+      </button>
 
       <div id="toast"></div>
 
@@ -148,7 +190,12 @@ function renderHome(app) {
   bindHome();
 }
 
+/* =========================
+   JOURNAL
+========================= */
+
 function renderJournal(app) {
+
   const weights = [...s.weights].reverse();
 
   app.innerHTML = `
@@ -164,9 +211,15 @@ function renderJournal(app) {
       <main>
 
         <section class="card">
+
           <div class="title">
+
             <h2>Repas enregistrés</h2>
-            <button id="meal">+ Ajouter</button>
+
+            <button id="meal">
+              + Ajouter
+            </button>
+
           </div>
 
           ${
@@ -175,42 +228,90 @@ function renderJournal(app) {
                   .map(
                     (m, i) => `
                       <div class="meal">
+
                         <div>
-                          <b>${m.name}</b>
+
+                          <b>
+                            ${escapeHTML(m.name)}
+                          </b>
+
                           <small>
                             ${m.kcal} kcal ·
                             P ${m.p}g ·
                             G ${m.c}g ·
                             L ${m.f}g
                           </small>
+
                         </div>
-                        <button data-d="${i}">×</button>
+
+                        <button
+                          data-meal-delete="${i}"
+                          aria-label="Supprimer le repas"
+                        >
+                          ×
+                        </button>
+
                       </div>
                     `
                   )
                   .join("")
               : "<p>Aucun repas enregistré.</p>"
           }
+
         </section>
 
         <section class="card">
 
           <div class="title">
+
             <h2>Historique du poids</h2>
-            <button id="weight">+ Pesée</button>
+
+            <button id="weight">
+              + Pesée
+            </button>
+
           </div>
 
           ${
             weights.length
               ? weights
                   .map(
-                    item => `
+                    (item, index) => `
                       <div class="meal">
+
                         <div>
-                          <b>${formatDate(item.date)}</b>
-                          <small>Pesée enregistrée</small>
+
+                          <b>
+                            ${formatDate(item.date)}
+                          </b>
+
+                          <small>
+                            Pesée enregistrée
+                          </small>
+
                         </div>
-                        <strong>${item.weight} kg</strong>
+
+                        <div
+                          style="
+                            display:flex;
+                            align-items:center;
+                            gap:8px;
+                          "
+                        >
+
+                          <strong>
+                            ${item.weight} kg
+                          </strong>
+
+                          <button
+                            data-weight-delete="${index}"
+                            aria-label="Supprimer la pesée"
+                          >
+                            ×
+                          </button>
+
+                        </div>
+
                       </div>
                     `
                   )
@@ -224,7 +325,13 @@ function renderJournal(app) {
 
       ${navigation("journal")}
 
-      <button class="mic" id="mic">🎙️</button>
+      <button
+        class="mic"
+        id="mic"
+        aria-label="Commande vocale"
+      >
+        🎙️
+      </button>
 
       <div id="toast"></div>
 
@@ -234,13 +341,20 @@ function renderJournal(app) {
   bindJournal();
 }
 
+/* =========================
+   NAVIGATION
+========================= */
+
 function navigation(page) {
   return `
     <nav>
 
       <span
         id="nav-home"
-        style="cursor:pointer;opacity:${page === "home" ? "1" : ".55"}"
+        style="
+          cursor:pointer;
+          opacity:${page === "home" ? "1" : ".55"}
+        "
       >
         ⌂
         <small>Accueil</small>
@@ -248,7 +362,10 @@ function navigation(page) {
 
       <span
         id="nav-journal"
-        style="cursor:pointer;opacity:${page === "journal" ? "1" : ".55"}"
+        style="
+          cursor:pointer;
+          opacity:${page === "journal" ? "1" : ".55"}
+        "
       >
         ◷
         <small>Journal</small>
@@ -256,7 +373,10 @@ function navigation(page) {
 
       <span
         id="nav-settings"
-        style="cursor:pointer;opacity:.55"
+        style="
+          cursor:pointer;
+          opacity:.55
+        "
       >
         ⚙
         <small>Réglages</small>
@@ -267,9 +387,15 @@ function navigation(page) {
 }
 
 function bindNavigation() {
-  const home = document.querySelector("#nav-home");
-  const journal = document.querySelector("#nav-journal");
-  const settings = document.querySelector("#nav-settings");
+
+  const home =
+    document.querySelector("#nav-home");
+
+  const journal =
+    document.querySelector("#nav-journal");
+
+  const settings =
+    document.querySelector("#nav-settings");
 
   if (home) {
     home.onclick = () => {
@@ -292,60 +418,212 @@ function bindNavigation() {
   }
 }
 
+/* =========================
+   BOUTONS ACCUEIL
+========================= */
+
 function bindHome() {
+
   bindNavigation();
 
-  document.querySelector("#mic").onclick = listen;
-  document.querySelector("#meal").onclick = meal;
-  document.querySelector("#weight").onclick = weight;
+  const mic =
+    document.querySelector("#mic");
 
-  document.querySelector("#reset").onclick = () => {
-    localStorage.removeItem(KEY);
-    s = { ...defaults };
-    render();
-  };
+  const mealButton =
+    document.querySelector("#meal");
+
+  const weightButton =
+    document.querySelector("#weight");
+
+  const resetButton =
+    document.querySelector("#reset");
+
+  if (mic) {
+    mic.onclick = listen;
+  }
+
+  if (mealButton) {
+    mealButton.onclick = meal;
+  }
+
+  if (weightButton) {
+    weightButton.onclick = weight;
+  }
+
+  if (resetButton) {
+    resetButton.onclick = resetApp;
+  }
 
   bindDeleteButtons();
 }
+
+/* =========================
+   BOUTONS JOURNAL
+========================= */
 
 function bindJournal() {
+
   bindNavigation();
 
-  document.querySelector("#mic").onclick = listen;
-  document.querySelector("#meal").onclick = meal;
-  document.querySelector("#weight").onclick = weight;
+  const mic =
+    document.querySelector("#mic");
+
+  const mealButton =
+    document.querySelector("#meal");
+
+  const weightButton =
+    document.querySelector("#weight");
+
+  if (mic) {
+    mic.onclick = listen;
+  }
+
+  if (mealButton) {
+    mealButton.onclick = meal;
+  }
+
+  if (weightButton) {
+    weightButton.onclick = weight;
+  }
 
   bindDeleteButtons();
 }
 
+/* =========================
+   SUPPRESSION
+========================= */
+
 function bindDeleteButtons() {
-  document.querySelectorAll("[data-d]").forEach(button => {
-    button.onclick = () => {
-      const index = Number(button.dataset.d);
-      const m = s.meals.splice(index, 1)[0];
 
-      if (!m) return;
+  document
+    .querySelectorAll("[data-meal-delete]")
+    .forEach(button => {
 
-      s.eaten -= m.kcal;
-      s.protein -= m.p;
-      s.carbs -= m.c;
-      s.fat -= m.f;
+      button.onclick = () => {
 
-      save();
-      render();
-    };
-  });
+        const index =
+          Number(button.dataset.mealDelete);
+
+        const m =
+          s.meals[index];
+
+        if (!m) return;
+
+        s.eaten -= Number(m.kcal) || 0;
+        s.protein -= Number(m.p) || 0;
+        s.carbs -= Number(m.c) || 0;
+        s.fat -= Number(m.f) || 0;
+
+        s.meals.splice(index, 1);
+
+        save();
+        render();
+
+        toast("Repas supprimé");
+      };
+
+    });
+
+
+  document
+    .querySelectorAll("[data-weight-delete]")
+    .forEach(button => {
+
+      button.onclick = () => {
+
+        const reversedIndex =
+          Number(button.dataset.weightDelete);
+
+        const weights =
+          [...s.weights].reverse();
+
+        const item =
+          weights[reversedIndex];
+
+        if (!item) return;
+
+        const realIndex =
+          s.weights.indexOf(item);
+
+        s.weights.splice(realIndex, 1);
+
+        /*
+         * Si on vient de supprimer la pesée
+         * correspondant au poids actuel,
+         * on reprend la dernière pesée restante.
+         */
+
+        if (s.weights.length > 0) {
+
+          const latest =
+            [...s.weights].sort(
+              (a, b) =>
+                new Date(b.date) -
+                new Date(a.date)
+            )[0];
+
+          s.weight = latest.weight;
+
+        } else {
+
+          s.weight = defaults.weight;
+
+        }
+
+        save();
+        render();
+
+        toast("Pesée supprimée");
+      };
+
+    });
 }
 
+/* =========================
+   AJOUT REPAS
+========================= */
+
 function meal() {
-  const name = prompt("Nom du repas ?", "Repas");
+
+  const name =
+    prompt(
+      "Nom du repas ?",
+      "Repas"
+    );
 
   if (!name) return;
 
-  const kcal = Number(prompt("Calories ?", "500")) || 0;
-  const protein = Number(prompt("Protéines (g) ?", "30")) || 0;
-  const carbs = Number(prompt("Glucides (g) ?", "50")) || 0;
-  const fat = Number(prompt("Lipides (g) ?", "15")) || 0;
+  const kcal =
+    Number(
+      prompt(
+        "Calories ?",
+        "500"
+      )
+    ) || 0;
+
+  const protein =
+    Number(
+      prompt(
+        "Protéines (g) ?",
+        "30"
+      )
+    ) || 0;
+
+  const carbs =
+    Number(
+      prompt(
+        "Glucides (g) ?",
+        "50"
+      )
+    ) || 0;
+
+  const fat =
+    Number(
+      prompt(
+        "Lipides (g) ?",
+        "15"
+      )
+    ) || 0;
 
   s.meals.push({
     name,
@@ -366,8 +644,19 @@ function meal() {
   toast("Repas ajouté");
 }
 
+/* =========================
+   AJOUT POIDS
+========================= */
+
 function weight() {
-  const value = Number(prompt("Poids actuel (kg) ?", s.weight));
+
+  const value =
+    Number(
+      prompt(
+        "Poids actuel (kg) ?",
+        s.weight
+      )
+    );
 
   if (!value) return;
 
@@ -384,97 +673,229 @@ function weight() {
   toast("Poids enregistré");
 }
 
-function formatDate(date) {
-  return new Date(date).toLocaleDateString("fr-FR", {
-    day: "2-digit",
-    month: "2-digit",
-    year: "numeric"
-  });
+/* =========================
+   RESET
+========================= */
+
+function resetApp() {
+
+  const confirmReset =
+    confirm(
+      "Réinitialiser toutes les données de l’application ?"
+    );
+
+  if (!confirmReset) return;
+
+  localStorage.removeItem(KEY);
+
+  s = {
+    ...defaults
+  };
+
+  currentPage = "home";
+
+  render();
+
+  toast("Données réinitialisées");
 }
 
+/* =========================
+   MICRO
+========================= */
+
 function listen() {
+
   const SpeechRecognition =
     window.SpeechRecognition ||
     window.webkitSpeechRecognition;
 
   if (!SpeechRecognition) {
-    toast("La dictée vocale n’est pas disponible ici.");
+
+    toast(
+      "La reconnaissance vocale n’est pas disponible dans ce navigateur."
+    );
+
     return;
   }
 
   if (rec) {
+
     rec.stop();
     return;
   }
 
-  rec = new SpeechRecognition();
-  rec.lang = "fr-FR";
-  rec.interimResults = false;
+  try {
 
-  rec.onresult = event => {
-    const text = event.results[0][0].transcript;
+    rec =
+      new SpeechRecognition();
 
-    toast("J’ai entendu : " + text);
+    rec.lang = "fr-FR";
 
-    voice(text);
-  };
+    rec.continuous = false;
 
-  rec.onerror = event => {
-    toast("Micro : " + event.error);
-  };
+    rec.interimResults = false;
 
-  rec.onend = () => {
+    rec.maxAlternatives = 1;
+
+    const button =
+      document.querySelector("#mic");
+
+    if (button) {
+      button.textContent = "⏹️";
+    }
+
+    toast("Je t’écoute…");
+
+    rec.onstart = () => {
+
+      const button =
+        document.querySelector("#mic");
+
+      if (button) {
+        button.textContent = "🔴";
+      }
+    };
+
+    rec.onresult = event => {
+
+      if (
+        !event.results ||
+        !event.results.length
+      ) {
+        return;
+      }
+
+      const text =
+        event.results[0][0].transcript;
+
+      toast(
+        "J’ai entendu : " + text
+      );
+
+      voice(text);
+    };
+
+    rec.onerror = event => {
+
+      console.log(
+        "SpeechRecognition error:",
+        event.error
+      );
+
+      let message =
+        "Erreur du micro.";
+
+      if (event.error === "not-allowed") {
+        message =
+          "Autorise le micro pour ce site dans Chrome.";
+      }
+
+      if (event.error === "no-speech") {
+        message =
+          "Je n’ai rien entendu.";
+      }
+
+      if (event.error === "network") {
+        message =
+          "La reconnaissance vocale nécessite une connexion.";
+      }
+
+      toast(message);
+
+      rec = null;
+
+      const button =
+        document.querySelector("#mic");
+
+      if (button) {
+        button.textContent = "🎙️";
+      }
+    };
+
+    rec.onend = () => {
+
+      rec = null;
+
+      const button =
+        document.querySelector("#mic");
+
+      if (button) {
+        button.textContent = "🎙️";
+      }
+    };
+
+    rec.start();
+
+  } catch (error) {
+
+    console.error(error);
+
     rec = null;
 
-    const button = document.querySelector("#mic");
+    const button =
+      document.querySelector("#mic");
 
     if (button) {
       button.textContent = "🎙️";
     }
-  };
 
-  const button = document.querySelector("#mic");
-
-  if (button) {
-    button.textContent = "⏹️";
+    toast(
+      "Impossible de démarrer le micro."
+    );
   }
-
-  toast("Je t’écoute…");
-
-  rec.start();
 }
 
+/* =========================
+   COMMANDES VOCALES
+========================= */
+
 function voice(text) {
-  const weightMatch = text.match(
-    /(?:poids|pèse|pesée).*?(\d+[,.]?\d*)\s*kg/i
-  );
+
+  const weightMatch =
+    text.match(
+      /(?:poids|pèse|pesée).*?(\d+[,.]?\d*)\s*kg/i
+    );
 
   if (weightMatch) {
-    s.weight = Number(
-      weightMatch[1].replace(",", ".")
-    );
+
+    const newWeight =
+      Number(
+        weightMatch[1].replace(",", ".")
+      );
+
+    s.weight = newWeight;
 
     s.weights.push({
       date: new Date().toISOString(),
-      weight: s.weight
+      weight: newWeight
     });
 
     save();
     render();
 
-    toast("Poids enregistré");
+    toast(
+      "Poids enregistré : " +
+      newWeight +
+      " kg"
+    );
 
     return;
   }
 
-  const kcalMatch = text.match(
-    /(\d+)\s*(?:kcal|calories)/i
-  );
+  const kcalMatch =
+    text.match(
+      /(\d+)\s*(?:kcal|calories)/i
+    );
 
-  if (/mangé|mange|repas|déjeun|dîné/i.test(text)) {
-    const kcal = kcalMatch
-      ? Number(kcalMatch[1])
-      : 0;
+  if (
+    /mangé|mange|repas|déjeun|dîné|dîner/i
+      .test(text)
+  ) {
+
+    const kcal =
+      kcalMatch
+        ? Number(kcalMatch[1])
+        : 0;
 
     s.meals.push({
       name: text,
@@ -498,5 +919,54 @@ function voice(text) {
     "Commande reçue. L’analyse IA arrive dans la prochaine version."
   );
 }
+
+/* =========================
+   OUTILS
+========================= */
+
+function formatDate(date) {
+
+  return new Date(date)
+    .toLocaleDateString(
+      "fr-FR",
+      {
+        day: "2-digit",
+        month: "2-digit",
+        year: "numeric"
+      }
+    );
+}
+
+function escapeHTML(value) {
+
+  return String(value)
+    .replaceAll("&", "&amp;")
+    .replaceAll("<", "&lt;")
+    .replaceAll(">", "&gt;")
+    .replaceAll('"', "&quot;")
+    .replaceAll("'", "&#039;");
+}
+
+function toast(message) {
+
+  const element =
+    document.querySelector("#toast");
+
+  if (!element) return;
+
+  element.textContent = message;
+
+  element.className = "show";
+
+  setTimeout(() => {
+
+    element.className = "";
+
+  }, 2500);
+}
+
+/* =========================
+   DÉMARRAGE
+========================= */
 
 render();
