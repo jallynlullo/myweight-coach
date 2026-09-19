@@ -22,6 +22,7 @@ try {
 
 let s = { ...defaults, ...saved };
 let rec = null;
+let currentPage = "home";
 
 function save() {
   localStorage.setItem(KEY, JSON.stringify(s));
@@ -32,6 +33,14 @@ function render() {
 
   if (!app) return;
 
+  if (currentPage === "journal") {
+    renderJournal(app);
+  } else {
+    renderHome(app);
+  }
+}
+
+function renderHome(app) {
   app.innerHTML = `
     <div class="app">
 
@@ -127,11 +136,7 @@ function render() {
 
       </main>
 
-      <nav>
-        <span>⌂<small>Accueil</small></span>
-        <span>◷<small>Journal</small></span>
-        <span>⚙<small>Réglages</small></span>
-      </nav>
+      ${navigation("home")}
 
       <button class="mic" id="mic">🎙️</button>
 
@@ -140,23 +145,156 @@ function render() {
     </div>
   `;
 
-  bind();
+  bindHome();
 }
 
-function toast(message) {
-  const element = document.querySelector("#toast");
+function renderJournal(app) {
+  const weights = [...s.weights].reverse();
 
-  if (!element) return;
+  app.innerHTML = `
+    <div class="app">
 
-  element.textContent = message;
-  element.className = "show";
+      <header>
+        <div>
+          <small>MYWEIGHT COACH</small>
+          <h1>Journal</h1>
+        </div>
+      </header>
 
-  setTimeout(() => {
-    element.className = "";
-  }, 2200);
+      <main>
+
+        <section class="card">
+          <div class="title">
+            <h2>Repas enregistrés</h2>
+            <button id="meal">+ Ajouter</button>
+          </div>
+
+          ${
+            s.meals.length
+              ? s.meals
+                  .map(
+                    (m, i) => `
+                      <div class="meal">
+                        <div>
+                          <b>${m.name}</b>
+                          <small>
+                            ${m.kcal} kcal ·
+                            P ${m.p}g ·
+                            G ${m.c}g ·
+                            L ${m.f}g
+                          </small>
+                        </div>
+                        <button data-d="${i}">×</button>
+                      </div>
+                    `
+                  )
+                  .join("")
+              : "<p>Aucun repas enregistré.</p>"
+          }
+        </section>
+
+        <section class="card">
+
+          <div class="title">
+            <h2>Historique du poids</h2>
+            <button id="weight">+ Pesée</button>
+          </div>
+
+          ${
+            weights.length
+              ? weights
+                  .map(
+                    item => `
+                      <div class="meal">
+                        <div>
+                          <b>${formatDate(item.date)}</b>
+                          <small>Pesée enregistrée</small>
+                        </div>
+                        <strong>${item.weight} kg</strong>
+                      </div>
+                    `
+                  )
+                  .join("")
+              : "<p>Aucune pesée enregistrée.</p>"
+          }
+
+        </section>
+
+      </main>
+
+      ${navigation("journal")}
+
+      <button class="mic" id="mic">🎙️</button>
+
+      <div id="toast"></div>
+
+    </div>
+  `;
+
+  bindJournal();
 }
 
-function bind() {
+function navigation(page) {
+  return `
+    <nav>
+
+      <span
+        id="nav-home"
+        style="cursor:pointer;opacity:${page === "home" ? "1" : ".55"}"
+      >
+        ⌂
+        <small>Accueil</small>
+      </span>
+
+      <span
+        id="nav-journal"
+        style="cursor:pointer;opacity:${page === "journal" ? "1" : ".55"}"
+      >
+        ◷
+        <small>Journal</small>
+      </span>
+
+      <span
+        id="nav-settings"
+        style="cursor:pointer;opacity:.55"
+      >
+        ⚙
+        <small>Réglages</small>
+      </span>
+
+    </nav>
+  `;
+}
+
+function bindNavigation() {
+  const home = document.querySelector("#nav-home");
+  const journal = document.querySelector("#nav-journal");
+  const settings = document.querySelector("#nav-settings");
+
+  if (home) {
+    home.onclick = () => {
+      currentPage = "home";
+      render();
+    };
+  }
+
+  if (journal) {
+    journal.onclick = () => {
+      currentPage = "journal";
+      render();
+    };
+  }
+
+  if (settings) {
+    settings.onclick = () => {
+      toast("Réglages : prochaine étape");
+    };
+  }
+}
+
+function bindHome() {
+  bindNavigation();
+
   document.querySelector("#mic").onclick = listen;
   document.querySelector("#meal").onclick = meal;
   document.querySelector("#weight").onclick = weight;
@@ -167,6 +305,20 @@ function bind() {
     render();
   };
 
+  bindDeleteButtons();
+}
+
+function bindJournal() {
+  bindNavigation();
+
+  document.querySelector("#mic").onclick = listen;
+  document.querySelector("#meal").onclick = meal;
+  document.querySelector("#weight").onclick = weight;
+
+  bindDeleteButtons();
+}
+
+function bindDeleteButtons() {
   document.querySelectorAll("[data-d]").forEach(button => {
     button.onclick = () => {
       const index = Number(button.dataset.d);
@@ -210,6 +362,8 @@ function meal() {
 
   save();
   render();
+
+  toast("Repas ajouté");
 }
 
 function weight() {
@@ -230,113 +384,4 @@ function weight() {
   toast("Poids enregistré");
 }
 
-function listen() {
-  const SpeechRecognition =
-    window.SpeechRecognition ||
-    window.webkitSpeechRecognition;
-
-  if (!SpeechRecognition) {
-    toast("La dictée vocale n’est pas disponible ici.");
-    return;
-  }
-
-  if (rec) {
-    rec.stop();
-    return;
-  }
-
-  rec = new SpeechRecognition();
-  rec.lang = "fr-FR";
-  rec.interimResults = false;
-
-  rec.onresult = event => {
-    const text =
-      event.results[0][0].transcript;
-
-    toast("J’ai entendu : " + text);
-    voice(text);
-  };
-
-  rec.onerror = event => {
-    toast("Micro : " + event.error);
-  };
-
-  rec.onend = () => {
-    rec = null;
-
-    const button = document.querySelector("#mic");
-
-    if (button) {
-      button.textContent = "🎙️";
-    }
-  };
-
-  const button = document.querySelector("#mic");
-
-  if (button) {
-    button.textContent = "⏹️";
-  }
-
-  toast("Je t’écoute…");
-
-  rec.start();
-}
-
-function voice(text) {
-  const weightMatch = text.match(
-    /(?:poids|pèse|pesée).*?(\d+[,.]?\d*)\s*kg/i
-  );
-
-  if (weightMatch) {
-    s.weight = Number(
-      weightMatch[1].replace(",", ".")
-    );
-
-    s.weights.push({
-      date: new Date().toISOString(),
-      weight: s.weight
-    });
-
-    save();
-    render();
-
-    toast("Poids enregistré");
-
-    return;
-  }
-
-  const kcalMatch = text.match(
-    /(\d+)\s*(?:kcal|calories)/i
-  );
-
-  if (
-    /mangé|mange|repas|déjeun|dîné/i.test(text)
-  ) {
-    const kcal = kcalMatch
-      ? Number(kcalMatch[1])
-      : 0;
-
-    s.meals.push({
-      name: text,
-      kcal,
-      p: 0,
-      c: 0,
-      f: 0
-    });
-
-    s.eaten += kcal;
-
-    save();
-    render();
-
-    toast("Repas ajouté");
-
-    return;
-  }
-
-  toast(
-    "Commande reçue. L’analyse IA arrive dans la prochaine version."
-  );
-}
-
-render();
+function formatDate(date) {
