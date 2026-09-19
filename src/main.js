@@ -1,4 +1,3 @@
-import './style.css';
 const KEY='mwc_v03', defaults={weight:94,goal:82,kcal:2200,eaten:0,protein:0,carbs:0,fat:0,meals:[],weights:[]};
 let s={...defaults,...JSON.parse(localStorage.getItem(KEY)||'{}')};let rec;
 const save=()=>localStorage.setItem(KEY,JSON.stringify(s));
