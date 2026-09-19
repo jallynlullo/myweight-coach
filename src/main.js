@@ -848,10 +848,7 @@ async function askAI(message) {
       await response.json();
 
     if (!response.ok) {
-      throw new Error(
-        data.error ||
-        "Erreur du serveur"
-      );
+  throw new Error(JSON.stringify(data));
     }
 
     return (
