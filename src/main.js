@@ -1,5 +1,7 @@
 const KEY = "mwc_v03";
 
+const AI_URL = "https://myweight-ai.jallyn-lullo.workers.dev";
+
 const defaults = {
   weight: 94,
   goal: 82,
@@ -32,10 +34,6 @@ function save() {
   localStorage.setItem(KEY, JSON.stringify(s));
 }
 
-/* =========================
-   AFFICHAGE PRINCIPAL
-========================= */
-
 function render() {
   const app = document.querySelector("#app");
 
@@ -47,10 +45,6 @@ function render() {
     renderHome(app);
   }
 }
-
-/* =========================
-   ACCUEIL
-========================= */
 
 function renderHome(app) {
   app.innerHTML = `
@@ -70,12 +64,8 @@ function renderHome(app) {
         <section class="card hero">
           <div>
             <span>Poids actuel</span>
-
             <strong>${s.weight} kg</strong>
-
-            <small>
-              Objectif ${s.goal} kg
-            </small>
+            <small>Objectif ${s.goal} kg</small>
           </div>
 
           <div class="ring">
@@ -155,13 +145,11 @@ function renderHome(app) {
         <section class="card">
 
           <div class="title">
-
             <h2>Poids</h2>
 
             <button id="weight">
               + Pesée
             </button>
-
           </div>
 
           <strong class="big">
@@ -190,10 +178,6 @@ function renderHome(app) {
   bindHome();
 }
 
-/* =========================
-   JOURNAL
-========================= */
-
 function renderJournal(app) {
 
   const weights = [...s.weights].reverse();
@@ -213,13 +197,11 @@ function renderJournal(app) {
         <section class="card">
 
           <div class="title">
-
             <h2>Repas enregistrés</h2>
 
             <button id="meal">
               + Ajouter
             </button>
-
           </div>
 
           ${
@@ -230,7 +212,6 @@ function renderJournal(app) {
                       <div class="meal">
 
                         <div>
-
                           <b>
                             ${escapeHTML(m.name)}
                           </b>
@@ -241,7 +222,6 @@ function renderJournal(app) {
                             G ${m.c}g ·
                             L ${m.f}g
                           </small>
-
                         </div>
 
                         <button
@@ -341,10 +321,6 @@ function renderJournal(app) {
   bindJournal();
 }
 
-/* =========================
-   NAVIGATION
-========================= */
-
 function navigation(page) {
   return `
     <nav>
@@ -418,10 +394,6 @@ function bindNavigation() {
   }
 }
 
-/* =========================
-   BOUTONS ACCUEIL
-========================= */
-
 function bindHome() {
 
   bindNavigation();
@@ -457,10 +429,6 @@ function bindHome() {
   bindDeleteButtons();
 }
 
-/* =========================
-   BOUTONS JOURNAL
-========================= */
-
 function bindJournal() {
 
   bindNavigation();
@@ -488,10 +456,6 @@ function bindJournal() {
 
   bindDeleteButtons();
 }
-
-/* =========================
-   SUPPRESSION
-========================= */
 
 function bindDeleteButtons() {
 
@@ -547,12 +511,6 @@ function bindDeleteButtons() {
 
         s.weights.splice(realIndex, 1);
 
-        /*
-         * Si on vient de supprimer la pesée
-         * correspondant au poids actuel,
-         * on reprend la dernière pesée restante.
-         */
-
         if (s.weights.length > 0) {
 
           const latest =
@@ -578,10 +536,6 @@ function bindDeleteButtons() {
 
     });
 }
-
-/* =========================
-   AJOUT REPAS
-========================= */
 
 function meal() {
 
@@ -644,10 +598,6 @@ function meal() {
   toast("Repas ajouté");
 }
 
-/* =========================
-   AJOUT POIDS
-========================= */
-
 function weight() {
 
   const value =
@@ -673,10 +623,6 @@ function weight() {
   toast("Poids enregistré");
 }
 
-/* =========================
-   RESET
-========================= */
-
 function resetApp() {
 
   const confirmReset =
@@ -699,10 +645,6 @@ function resetApp() {
   toast("Données réinitialisées");
 }
 
-/* =========================
-   MICRO
-========================= */
-
 function listen() {
 
   const SpeechRecognition =
@@ -719,7 +661,6 @@ function listen() {
   }
 
   if (rec) {
-
     rec.stop();
     return;
   }
@@ -730,11 +671,8 @@ function listen() {
       new SpeechRecognition();
 
     rec.lang = "fr-FR";
-
     rec.continuous = false;
-
     rec.interimResults = false;
-
     rec.maxAlternatives = 1;
 
     const button =
@@ -845,11 +783,7 @@ function listen() {
   }
 }
 
-/* =========================
-   COMMANDES VOCALES
-========================= */
-
-function voice(text) {
+async function voice(text) {
 
   const weightMatch =
     text.match(
@@ -882,47 +816,108 @@ function voice(text) {
     return;
   }
 
-  const kcalMatch =
-    text.match(
-      /(\d+)\s*(?:kcal|calories)/i
-    );
+  toast("Analyse IA en cours…");
 
-  if (
-    /mangé|mange|repas|déjeun|dîné|dîner/i
-      .test(text)
-  ) {
+  const answer =
+    await askAI(text);
 
-    const kcal =
-      kcalMatch
-        ? Number(kcalMatch[1])
-        : 0;
-
-    s.meals.push({
-      name: text,
-      kcal,
-      p: 0,
-      c: 0,
-      f: 0
-    });
-
-    s.eaten += kcal;
-
-    save();
-    render();
-
-    toast("Repas ajouté");
-
-    return;
-  }
-
-  toast(
-    "Commande reçue. L’analyse IA arrive dans la prochaine version."
-  );
+  showAIResponse(answer);
 }
 
-/* =========================
-   OUTILS
-========================= */
+async function askAI(message) {
+
+  try {
+
+    const response =
+      await fetch(
+        AI_URL,
+        {
+          method: "POST",
+
+          headers: {
+            "Content-Type": "application/json"
+          },
+
+          body: JSON.stringify({
+            message: message
+          })
+        }
+      );
+
+    const data =
+      await response.json();
+
+    if (!response.ok) {
+      throw new Error(
+        data.error ||
+        "Erreur du serveur"
+      );
+    }
+
+    return (
+      data.answer ||
+      "Je n'ai pas reçu de réponse."
+    );
+
+  } catch (error) {
+
+    console.error(
+      "Erreur IA :",
+      error
+    );
+
+    return (
+      "Je n'arrive pas à contacter " +
+      "mon coach IA pour le moment."
+    );
+  }
+}
+
+function showAIResponse(answer) {
+
+  const existing =
+    document.querySelector("#ai-response");
+
+  if (existing) {
+    existing.remove();
+  }
+
+  const card =
+    document.createElement("section");
+
+  card.id = "ai-response";
+  card.className = "card";
+
+  card.innerHTML = `
+    <div class="title">
+      <h2>🤖 MyWeight Coach</h2>
+
+      <button id="close-ai">
+        ×
+      </button>
+    </div>
+
+    <p style="white-space:pre-wrap">
+      ${escapeHTML(answer)}
+    </p>
+  `;
+
+  const main =
+    document.querySelector("main");
+
+  if (main) {
+    main.prepend(card);
+  }
+
+  const close =
+    document.querySelector("#close-ai");
+
+  if (close) {
+    close.onclick = () => {
+      card.remove();
+    };
+  }
+}
 
 function formatDate(date) {
 
@@ -955,46 +950,11 @@ function toast(message) {
   if (!element) return;
 
   element.textContent = message;
-
   element.className = "show";
 
   setTimeout(() => {
-
     element.className = "";
-
   }, 2500);
 }
 
-/* =========================
-   DÉMARRAGE
-========================= */
-
-async function askAI(message) {
-  try {
-    const response = await fetch(
-      "https://mywait-a.<TON-DOMAINE>.workers.dev",
-      {
-        method: "POST",
-        headers: {
-          "Content-Type": "application/json"
-        },
-        body: JSON.stringify({
-          message
-        })
-      }
-    );
-
-    const data = await response.json();
-
-    if (!response.ok) {
-      throw new Error(data.error || "Erreur du serveur");
-    }
-
-    return data.answer;
-
-  } catch (error) {
-    console.error(error);
-    return "Je n'arrive pas à contacter mon coach IA pour le moment.";
-  }
-}
 render();
