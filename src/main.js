@@ -1,5 +1,4 @@
-const KEY = "mwc_v04";
-
+const KEY = "mwc_v03";
 const AI_URL = "https://myweight-ai.jallyn-lullo.workers.dev";
 
 const defaults = {
@@ -16,25 +15,17 @@ const defaults = {
 };
 
 let saved = {};
-
 try {
   saved = JSON.parse(localStorage.getItem(KEY) || "{}");
-} catch (e) {
-  localStorage.removeItem(KEY);
-}
+} catch {}
 
 let s = {
   ...defaults,
   ...saved,
-  recipes: saved.recipes || []
+  meals: Array.isArray(saved.meals) ? saved.meals : [],
+  weights: Array.isArray(saved.weights) ? saved.weights : [],
+  recipes: Array.isArray(saved.recipes) ? saved.recipes : []
 };
-
-let rec = null;
-let currentPage = "home";
-
-/* =========================
-   CONVERSATION IA
-========================= */
 
 let aiConversation = null;
 
@@ -42,1342 +33,8 @@ function save() {
   localStorage.setItem(KEY, JSON.stringify(s));
 }
 
-function render() {
-  const app = document.querySelector("#app");
-
-  if (!app) return;
-
-  if (currentPage === "journal") {
-    renderJournal(app);
-  } else {
-    renderHome(app);
-  }
-}
-
-function renderHome(app) {
-  app.innerHTML = `
-    <div class="app">
-
-      <header>
-        <div>
-          <small>MYWEIGHT COACH</small>
-          <h1>Aujourd’hui</h1>
-        </div>
-
-        <button id="reset">↻</button>
-      </header>
-
-      <main>
-
-        <section class="card hero">
-          <div>
-            <span>Poids actuel</span>
-            <strong>${s.weight} kg</strong>
-            <small>Objectif ${s.goal} kg</small>
-          </div>
-
-          <div class="ring">
-            <b>${Math.max(0, s.kcal - s.eaten)}</b>
-            <small>kcal restantes</small>
-          </div>
-        </section>
-
-        <section class="grid">
-
-          <div class="card stat">
-            <span>Calories</span>
-            <b>${Math.round(s.eaten)} / ${s.kcal}</b>
-          </div>
-
-          <div class="card stat">
-            <span>Protéines</span>
-            <b>${Math.round(s.protein)} g</b>
-          </div>
-
-          <div class="card stat">
-            <span>Glucides</span>
-            <b>${Math.round(s.carbs)} g</b>
-          </div>
-
-          <div class="card stat">
-            <span>Lipides</span>
-            <b>${Math.round(s.fat)} g</b>
-          </div>
-
-        </section>
-
-        <section class="card">
-
-          <div class="title">
-            <h2>Repas du jour</h2>
-
-            <button id="meal">
-              + Ajouter
-            </button>
-          </div>
-
-          ${
-            s.meals.length
-              ? s.meals.map(renderMeal).join("")
-              : "<p>Aucun repas enregistré.</p>"
-          }
-
-        </section>
-
-        <section class="card">
-
-          <div class="title">
-            <h2>Recettes</h2>
-
-            <button id="create-recipe">
-              🍳 Créer
-            </button>
-          </div>
-
-          ${
-            s.recipes.length
-              ? s.recipes.map(renderRecipe).join("")
-              : "<p>Aucune recette enregistrée.</p>"
-          }
-
-        </section>
-
-        <section class="card">
-
-          <div class="title">
-            <h2>Poids</h2>
-
-            <button id="weight">
-              + Pesée
-            </button>
-          </div>
-
-          <strong class="big">
-            ${s.weight} kg
-          </strong>
-
-        </section>
-
-      </main>
-
-      ${navigation("home")}
-
-      <button class="mic" id="mic" aria-label="Commande vocale">
-        🎙️
-      </button>
-
-      <div id="toast"></div>
-
-    </div>
-  `;
-
-  bindHome();
-}
-
-function renderJournal(app) {
-
-  const weights = [...s.weights].reverse();
-
-  app.innerHTML = `
-    <div class="app">
-
-      <header>
-        <div>
-          <small>MYWEIGHT COACH</small>
-          <h1>Journal</h1>
-        </div>
-      </header>
-
-      <main>
-
-        <section class="card">
-
-          <div class="title">
-            <h2>Repas enregistrés</h2>
-
-            <button id="meal">
-              + Ajouter
-            </button>
-          </div>
-
-          ${
-            s.meals.length
-              ? s.meals.map(renderMeal).join("")
-              : "<p>Aucun repas enregistré.</p>"
-          }
-
-        </section>
-
-        <section class="card">
-
-          <div class="title">
-            <h2>Mes recettes</h2>
-
-            <button id="create-recipe">
-              🍳 Créer
-            </button>
-          </div>
-
-          ${
-            s.recipes.length
-              ? s.recipes.map(renderRecipe).join("")
-              : "<p>Aucune recette enregistrée.</p>"
-          }
-
-        </section>
-
-        <section class="card">
-
-          <div class="title">
-            <h2>Historique du poids</h2>
-
-            <button id="weight">
-              + Pesée
-            </button>
-          </div>
-
-          ${
-            weights.length
-              ? weights.map(
-                  (item, index) => `
-                    <div class="meal">
-
-                      <div>
-                        <b>${formatDate(item.date)}</b>
-                        <small>Pesée enregistrée</small>
-                      </div>
-
-                      <div style="display:flex;align-items:center;gap:8px">
-
-                        <strong>${item.weight} kg</strong>
-
-                        <button
-                          data-weight-delete="${index}"
-                          aria-label="Supprimer la pesée"
-                        >
-                          ×
-                        </button>
-
-                      </div>
-
-                    </div>
-                  `
-                ).join("")
-              : "<p>Aucune pesée enregistrée.</p>"
-          }
-
-        </section>
-
-      </main>
-
-      ${navigation("journal")}
-
-      <button class="mic" id="mic" aria-label="Commande vocale">
-        🎙️
-      </button>
-
-      <div id="toast"></div>
-
-    </div>
-  `;
-
-  bindJournal();
-}
-
-/* =========================
-   AFFICHAGE
-========================= */
-
-function renderMeal(m, i) {
-  return `
-    <div class="meal">
-
-      <div>
-        <b>${escapeHTML(m.name)}</b>
-
-        <small>
-          ${Math.round(m.kcal)} kcal ·
-          P ${Math.round(m.p)}g ·
-          G ${Math.round(m.c)}g ·
-          L ${Math.round(m.f)}g
-        </small>
-      </div>
-
-      <button
-        data-meal-delete="${i}"
-        aria-label="Supprimer le repas"
-      >
-        ×
-      </button>
-
-    </div>
-  `;
-}
-
-function renderRecipe(recipe, i) {
-  return `
-    <div class="meal">
-
-      <div>
-        <b>${escapeHTML(recipe.name)}</b>
-
-        <small>
-          ${Math.round(recipe.kcal)} kcal/portion ·
-          P ${Math.round(recipe.p)}g ·
-          G ${Math.round(recipe.c)}g ·
-          L ${Math.round(recipe.f)}g
-          · ${recipe.servings || 1} portions
-        </small>
-      </div>
-
-      <div style="display:flex;gap:6px">
-
-        <button data-recipe-add="${i}">
-          +
-        </button>
-
-        <button data-recipe-edit="${i}">
-          ✎
-        </button>
-
-        <button data-recipe-delete="${i}">
-          ×
-        </button>
-
-      </div>
-
-    </div>
-  `;
-}
-
-function navigation(page) {
-  return `
-    <nav>
-
-      <span id="nav-home"
-        style="cursor:pointer;opacity:${page === "home" ? "1" : ".55"}">
-        ⌂
-        <small>Accueil</small>
-      </span>
-
-      <span id="nav-journal"
-        style="cursor:pointer;opacity:${page === "journal" ? "1" : ".55"}">
-        ◷
-        <small>Journal</small>
-      </span>
-
-      <span id="nav-settings"
-        style="cursor:pointer;opacity:.55">
-        ⚙
-        <small>Réglages</small>
-      </span>
-
-    </nav>
-  `;
-}
-
-function bindNavigation() {
-
-  const home = document.querySelector("#nav-home");
-  const journal = document.querySelector("#nav-journal");
-  const settings = document.querySelector("#nav-settings");
-
-  if (home) {
-    home.onclick = () => {
-      currentPage = "home";
-      render();
-    };
-  }
-
-  if (journal) {
-    journal.onclick = () => {
-      currentPage = "journal";
-      render();
-    };
-  }
-
-  if (settings) {
-    settings.onclick = () => {
-      toast("Réglages : prochaine étape");
-    };
-  }
-}
-
-/* =========================
-   BIND
-========================= */
-
-function bindHome() {
-
-  bindNavigation();
-
-  const mic = document.querySelector("#mic");
-  const mealButton = document.querySelector("#meal");
-  const weightButton = document.querySelector("#weight");
-  const resetButton = document.querySelector("#reset");
-  const recipeButton = document.querySelector("#create-recipe");
-
-  if (mic) mic.onclick = listen;
-  if (mealButton) mealButton.onclick = meal;
-  if (weightButton) weightButton.onclick = weight;
-  if (resetButton) resetButton.onclick = resetApp;
-
-  if (recipeButton) {
-    recipeButton.onclick = () => {
-      startAIConversation("recipe");
-    };
-  }
-
-  bindDeleteButtons();
-  bindRecipeButtons();
-}
-
-function bindJournal() {
-
-  bindNavigation();
-
-  const mic = document.querySelector("#mic");
-  const mealButton = document.querySelector("#meal");
-  const weightButton = document.querySelector("#weight");
-  const recipeButton = document.querySelector("#create-recipe");
-
-  if (mic) mic.onclick = listen;
-  if (mealButton) mealButton.onclick = meal;
-  if (weightButton) weightButton.onclick = weight;
-
-  if (recipeButton) {
-    recipeButton.onclick = () => {
-      startAIConversation("recipe");
-    };
-  }
-
-  bindDeleteButtons();
-  bindRecipeButtons();
-}
-
-function bindDeleteButtons() {
-
-  document
-    .querySelectorAll("[data-meal-delete]")
-    .forEach(button => {
-
-      button.onclick = () => {
-
-        const index = Number(button.dataset.mealDelete);
-        const m = s.meals[index];
-
-        if (!m) return;
-
-        s.eaten -= Number(m.kcal) || 0;
-        s.protein -= Number(m.p) || 0;
-        s.carbs -= Number(m.c) || 0;
-        s.fat -= Number(m.f) || 0;
-
-        s.meals.splice(index, 1);
-
-        save();
-        render();
-
-        toast("Repas supprimé");
-      };
-    });
-
-  document
-    .querySelectorAll("[data-weight-delete]")
-    .forEach(button => {
-
-      button.onclick = () => {
-
-        const reversedIndex = Number(button.dataset.weightDelete);
-        const weights = [...s.weights].reverse();
-        const item = weights[reversedIndex];
-
-        if (!item) return;
-
-        const realIndex = s.weights.indexOf(item);
-
-        s.weights.splice(realIndex, 1);
-
-        if (s.weights.length > 0) {
-
-          const latest =
-            [...s.weights].sort(
-              (a, b) =>
-                new Date(b.date) -
-                new Date(a.date)
-            )[0];
-
-          s.weight = latest.weight;
-
-        } else {
-
-          s.weight = defaults.weight;
-        }
-
-        save();
-        render();
-
-        toast("Pesée supprimée");
-      };
-    });
-}
-
-function bindRecipeButtons() {
-
-  document
-    .querySelectorAll("[data-recipe-add]")
-    .forEach(button => {
-
-      button.onclick = () => {
-
-        const index = Number(button.dataset.recipeAdd);
-        const recipe = s.recipes[index];
-
-        if (!recipe) return;
-
-        addRecipeToJournal(recipe);
-      };
-    });
-
-  document
-    .querySelectorAll("[data-recipe-edit]")
-    .forEach(button => {
-
-      button.onclick = () => {
-
-        const index = Number(button.dataset.recipeEdit);
-        editRecipe(index);
-      };
-    });
-
-  document
-    .querySelectorAll("[data-recipe-delete]")
-    .forEach(button => {
-
-      button.onclick = () => {
-
-        const index = Number(button.dataset.recipeDelete);
-
-        if (!s.recipes[index]) return;
-
-        if (!confirm("Supprimer cette recette ?")) return;
-
-        s.recipes.splice(index, 1);
-
-        save();
-        render();
-
-        toast("Recette supprimée");
-      };
-    });
-}
-
-/* =========================
-   REPAS MANUEL
-========================= */
-
-function meal() {
-
-  const name = prompt("Nom du repas ?", "Repas");
-
-  if (!name) return;
-
-  const kcal = Number(prompt("Calories ?", "500")) || 0;
-  const protein = Number(prompt("Protéines (g) ?", "30")) || 0;
-  const carbs = Number(prompt("Glucides (g) ?", "50")) || 0;
-  const fat = Number(prompt("Lipides (g) ?", "15")) || 0;
-
-  addMeal({
-    name,
-    kcal,
-    p: protein,
-    c: carbs,
-    f: fat
-  });
-
-  toast("Repas ajouté");
-}
-
-function addMeal(m) {
-
-  s.meals.push({
-    name: m.name,
-    kcal: Number(m.kcal) || 0,
-    p: Number(m.p) || 0,
-    c: Number(m.c) || 0,
-    f: Number(m.f) || 0
-  });
-
-  s.eaten += Number(m.kcal) || 0;
-  s.protein += Number(m.p) || 0;
-  s.carbs += Number(m.c) || 0;
-  s.fat += Number(m.f) || 0;
-
-  save();
-  render();
-}
-
-/* =========================
-   RECETTES
-========================= */
-
-function addRecipeToJournal(recipe) {
-
-  addMeal({
-    name: recipe.name + " — 1 portion",
-    kcal: recipe.kcal,
-    p: recipe.p,
-    c: recipe.c,
-    f: recipe.f
-  });
-
-  toast("Portion ajoutée au journal");
-}
-
-function editRecipe(index) {
-
-  const recipe = s.recipes[index];
-
-  if (!recipe) return;
-
-  const name =
-    prompt("Nom de la recette ?", recipe.name);
-
-  if (!name) return;
-
-  const servings =
-    Number(
-      prompt(
-        "Nombre de portions ?",
-        recipe.servings || 1
-      )
-    ) || 1;
-
-  const kcal =
-    Number(
-      prompt(
-        "Calories par portion ?",
-        recipe.kcal
-      )
-    ) || 0;
-
-  const p =
-    Number(
-      prompt(
-        "Protéines par portion (g) ?",
-        recipe.p
-      )
-    ) || 0;
-
-  const c =
-    Number(
-      prompt(
-        "Glucides par portion (g) ?",
-        recipe.c
-      )
-    ) || 0;
-
-  const f =
-    Number(
-      prompt(
-        "Lipides par portion (g) ?",
-        recipe.f
-      )
-    ) || 0;
-
-  recipe.name = name;
-  recipe.servings = servings;
-  recipe.kcal = kcal;
-  recipe.p = p;
-  recipe.c = c;
-  recipe.f = f;
-
-  save();
-  render();
-
-  toast("Recette modifiée");
-}
-
-/* =========================
-   POIDS
-========================= */
-
-function weight() {
-
-  const value =
-    Number(
-      prompt(
-        "Poids actuel (kg) ?",
-        s.weight
-      )
-    );
-
-  if (!value) return;
-
-  s.weight = value;
-
-  s.weights.push({
-    date: new Date().toISOString(),
-    weight: value
-  });
-
-  save();
-  render();
-
-  toast("Poids enregistré");
-}
-
-/* =========================
-   RESET
-========================= */
-
-function resetApp() {
-
-  const confirmReset =
-    confirm(
-      "Réinitialiser toutes les données de l’application ?"
-    );
-
-  if (!confirmReset) return;
-
-  localStorage.removeItem(KEY);
-
-  s = {
-    ...defaults
-  };
-
-  currentPage = "home";
-
-  render();
-
-  toast("Données réinitialisées");
-}
-
-/* =========================
-   MICRO
-========================= */
-
-function listen() {
-
-  const SpeechRecognition =
-    window.SpeechRecognition ||
-    window.webkitSpeechRecognition;
-
-  if (!SpeechRecognition) {
-
-    toast(
-      "La reconnaissance vocale n’est pas disponible dans ce navigateur."
-    );
-
-    return;
-  }
-
-  if (rec) {
-    rec.stop();
-    return;
-  }
-
-  try {
-
-    rec = new SpeechRecognition();
-
-    rec.lang = "fr-FR";
-    rec.continuous = false;
-    rec.interimResults = false;
-    rec.maxAlternatives = 1;
-
-    const button = document.querySelector("#mic");
-
-    if (button) {
-      button.textContent = "⏹️";
-    }
-
-    toast("Je t’écoute…");
-
-    rec.onstart = () => {
-
-      const button = document.querySelector("#mic");
-
-      if (button) {
-        button.textContent = "🔴";
-      }
-    };
-
-    rec.onresult = event => {
-
-      if (
-        !event.results ||
-        !event.results.length
-      ) {
-        return;
-      }
-
-      const text =
-        event.results[0][0].transcript;
-
-      toast("J’ai entendu : " + text);
-
-      voice(text);
-    };
-
-    rec.onerror = event => {
-
-      console.log(
-        "SpeechRecognition error:",
-        event.error
-      );
-
-      let message = "Erreur du micro.";
-
-      if (event.error === "not-allowed") {
-        message =
-          "Autorise le micro pour ce site dans Chrome.";
-      }
-
-      if (event.error === "no-speech") {
-        message =
-          "Je n’ai rien entendu.";
-      }
-
-      if (event.error === "network") {
-        message =
-          "La reconnaissance vocale nécessite une connexion.";
-      }
-
-      toast(message);
-
-      rec = null;
-
-      const button = document.querySelector("#mic");
-
-      if (button) {
-        button.textContent = "🎙️";
-      }
-    };
-
-    rec.onend = () => {
-
-      rec = null;
-
-      const button = document.querySelector("#mic");
-
-      if (button) {
-        button.textContent = "🎙️";
-      }
-    };
-
-    rec.start();
-
-  } catch (error) {
-
-    console.error(error);
-
-    rec = null;
-
-    const button = document.querySelector("#mic");
-
-    if (button) {
-      button.textContent = "🎙️";
-    }
-
-    toast("Impossible de démarrer le micro.");
-  }
-}
-
-/* =========================
-   VOIX
-========================= */
-
-async function voice(text) {
-
-  const weightMatch =
-    text.match(
-      /(?:poids|pèse|pesée).*?(\d+[,.]?\d*)\s*kg/i
-    );
-
-  if (weightMatch) {
-
-    const newWeight =
-      Number(
-        weightMatch[1].replace(",", ".")
-      );
-
-    s.weight = newWeight;
-
-    s.weights.push({
-      date: new Date().toISOString(),
-      weight: newWeight
-    });
-
-    save();
-    render();
-
-    toast(
-      "Poids enregistré : " +
-      newWeight +
-      " kg"
-    );
-
-    return;
-  }
-
-  startAIConversation("meal", text);
-}
-
-/* =========================
-   CONVERSATION IA
-========================= */
-
-function startAIConversation(mode, firstMessage = "") {
-
-  aiConversation = {
-    mode,
-    messages: [],
-    result: null
-  };
-
-  renderAIConversation();
-
-  if (firstMessage) {
-    sendAIMessage(firstMessage);
-  }
-}
-
-function renderAIConversation() {
-
-  const existing =
-    document.querySelector("#ai-conversation");
-
-  if (existing) {
-    existing.remove();
-  }
-
-  const card =
-    document.createElement("section");
-
-  card.id = "ai-conversation";
-  card.className = "card";
-
-  const title =
-    aiConversation.mode === "recipe"
-      ? "🍳 Création de recette"
-      : "🤖 MyWeight Coach";
-
-  card.innerHTML = `
-    <div class="title">
-      <h2>${title}</h2>
-
-      <button id="close-ai-conversation">
-        ×
-      </button>
-    </div>
-
-    <div
-      id="ai-messages"
-      style="
-        display:flex;
-        flex-direction:column;
-        gap:10px;
-        margin-bottom:12px;
-      "
-    ></div>
-
-    <div
-      id="ai-result"
-      style="margin-bottom:10px"
-    ></div>
-
-    <div style="display:flex;gap:8px">
-
-      <input
-        id="ai-input"
-        type="text"
-        placeholder="Écris ta réponse…"
-        style="flex:1"
-      />
-
-      <button id="ai-send">
-        ➤
-      </button>
-
-    </div>
-  `;
-
-  const main = document.querySelector("main");
-
-  if (main) {
-    main.prepend(card);
-  }
-
-  document.querySelector("#close-ai-conversation").onclick =
-    closeAIConversation;
-
-  document.querySelector("#ai-send").onclick =
-    sendAIInput;
-
-  const input =
-    document.querySelector("#ai-input");
-
-  if (input) {
-
-    input.onkeydown = event => {
-
-      if (event.key === "Enter") {
-        sendAIInput();
-      }
-    };
-
-    input.focus();
-  }
-
-  updateAIMessages();
-}
-
-function updateAIMessages() {
-
-  const container =
-    document.querySelector("#ai-messages");
-
-  if (!container || !aiConversation) return;
-
-  container.innerHTML =
-    aiConversation.messages
-      .map(message => {
-
-        const align =
-          message.role === "user"
-            ? "flex-end"
-            : "flex-start";
-
-        return `
-          <div style="
-            display:flex;
-            justify-content:${align};
-          ">
-            <div style="
-              max-width:85%;
-              padding:10px 12px;
-              border-radius:12px;
-              background:var(--card-bg,#f2f4f7);
-            ">
-              ${escapeHTML(message.text)}
-            </div>
-          </div>
-        `;
-      })
-      .join("");
-
-  container.scrollTop =
-    container.scrollHeight;
-}
-
-function sendAIInput() {
-
-  const input =
-    document.querySelector("#ai-input");
-
-  if (!input) return;
-
-  const text =
-    input.value.trim();
-
-  if (!text) return;
-
-  input.value = "";
-
-  sendAIMessage(text);
-}
-
-async function sendAIMessage(text) {
-
-  if (!aiConversation) return;
-
-  aiConversation.messages.push({
-    role: "user",
-    text
-  });
-
-  updateAIMessages();
-
-  const result =
-    document.querySelector("#ai-result");
-
-  if (result) {
-    result.innerHTML = "<p>⏳ Gemini réfléchit…</p>";
-  }
-
-  try {
-
-    const history =
-      aiConversation.messages
-        .map(
-          message =>
-            `${message.role === "user" ? "Utilisateur" : "MyWeight Coach"}: ${message.text}`
-        )
-        .join("\n");
-
-    const answer =
-      await askAI(
-        JSON.stringify({
-          mode: aiConversation.mode,
-          conversation: history
-        })
-      );
-
-    let parsed;
-
-    try {
-      parsed = JSON.parse(answer);
-    } catch (e) {
-      parsed = {
-        type: "message",
-        message: answer
-      };
-    }
-
-    if (parsed.message) {
-
-      aiConversation.messages.push({
-        role: "assistant",
-        text: parsed.message
-      });
-    }
-
-    aiConversation.result = parsed;
-
-    updateAIMessages();
-    renderAIResult();
-
-  } catch (error) {
-
-    aiConversation.messages.push({
-      role: "assistant",
-      text: "Erreur : " + error.message
-    });
-
-    updateAIMessages();
-  }
-}
-
-function renderAIResult() {
-
-  const result =
-    document.querySelector("#ai-result");
-
-  if (!result || !aiConversation) return;
-
-  const data =
-    aiConversation.result;
-
-  if (!data) return;
-
-  if (data.type === "meal" && data.ready && data.item) {
-
-    const m = data.item;
-
-    result.innerHTML = `
-      <div class="card">
-
-        <strong>🍎 Repas identifié</strong>
-
-        <p>
-          ${escapeHTML(m.name)}
-        </p>
-
-        <p>
-          ${Math.round(m.kcal)} kcal ·
-          P ${Math.round(m.p)}g ·
-          G ${Math.round(m.c)}g ·
-          L ${Math.round(m.f)}g
-        </p>
-
-        <div style="display:flex;gap:8px">
-
-          <button id="ai-add-meal">
-            ✓ Ajouter au journal
-          </button>
-
-          <button id="ai-cancel-result">
-            Annuler
-          </button>
-
-        </div>
-
-      </div>
-    `;
-
-    document.querySelector("#ai-add-meal").onclick =
-      () => {
-
-        addMeal(m);
-
-        closeAIConversation();
-
-        toast("Repas ajouté au journal");
-      };
-
-    document.querySelector("#ai-cancel-result").onclick =
-      closeAIConversation;
-
-    return;
-  }
-
-  if (data.type === "recipe" && data.ready && data.item) {
-
-    const r = data.item;
-
-    result.innerHTML = `
-      <div class="card">
-
-        <strong>🍳 Recette prête</strong>
-
-        <p>
-          ${escapeHTML(r.name)}
-        </p>
-
-        <p>
-          ${r.servings || 1} portions
-        </p>
-
-        <p>
-          ${Math.round(r.kcal)} kcal/portion ·
-          P ${Math.round(r.p)}g ·
-          G ${Math.round(r.c)}g ·
-          L ${Math.round(r.f)}g
-        </p>
-
-        ${
-          r.ingredients?.length
-            ? `
-              <details>
-                <summary>Ingrédients</summary>
-                <ul>
-                  ${r.ingredients
-                    .map(
-                      i =>
-                        `<li>${escapeHTML(i)}</li>`
-                    )
-                    .join("")}
-                </ul>
-              </details>
-            `
-            : ""
-        }
-
-        <div style="display:flex;gap:8px">
-
-          <button id="ai-create-recipe">
-            ✓ Créer la recette
-          </button>
-
-          <button id="ai-cancel-result">
-            Annuler
-          </button>
-
-        </div>
-
-      </div>
-    `;
-
-    document.querySelector("#ai-create-recipe").onclick =
-      () => {
-
-        s.recipes.push({
-          name: r.name,
-          kcal: Number(r.kcal) || 0,
-          p: Number(r.p) || 0,
-          c: Number(r.c) || 0,
-          f: Number(r.f) || 0,
-          servings: Number(r.servings) || 1,
-          ingredients: r.ingredients || []
-        });
-
-        save();
-
-        closeAIConversation();
-        render();
-
-        toast("Recette créée");
-      };
-
-    document.querySelector("#ai-cancel-result").onclick =
-      closeAIConversation;
-
-    return;
-  }
-
-  result.innerHTML = "";
-}
-
-function closeAIConversation() {
-
-  aiConversation = null;
-
-  const card =
-    document.querySelector("#ai-conversation");
-
-  if (card) {
-    card.remove();
-  }
-}
-
-/* =========================
-   IA / WORKER
-========================= */
-
-async function askAI(message) {
-
-  const response =
-    await fetch(
-      AI_URL,
-      {
-        method: "POST",
-
-        headers: {
-          "Content-Type": "application/json"
-        },
-
-        body: JSON.stringify({
-          message
-        })
-      }
-    );
-
-  const data =
-    await response.json();
-
-  if (!response.ok) {
-    throw new Error(
-      JSON.stringify(data)
-    );
-  }
-
-  return (
-    data.answer ||
-    "Je n'ai pas reçu de réponse."
-  );
-}
-
-/* =========================
-   UTILITAIRES
-========================= */
-
-function formatDate(date) {
-
-  return new Date(date)
-    .toLocaleDateString(
-      "fr-FR",
-      {
-        day: "2-digit",
-        month: "2-digit",
-        year: "numeric"
-      }
-    );
-}
-
-function escapeHTML(value) {
-
-  return String(value)
+function esc(value) {
+  return String(value ?? "")
     .replaceAll("&", "&amp;")
     .replaceAll("<", "&lt;")
     .replaceAll(">", "&gt;")
@@ -1385,19 +42,1510 @@ function escapeHTML(value) {
     .replaceAll("'", "&#039;");
 }
 
+function num(value) {
+  const n = Number(value);
+  return Number.isFinite(n) ? n : 0;
+}
+
 function toast(message) {
+  let el = document.getElementById("toast");
 
-  const element =
-    document.querySelector("#toast");
+  if (!el) {
+    el = document.createElement("div");
+    el.id = "toast";
+    document.body.appendChild(el);
+  }
 
-  if (!element) return;
+  el.textContent = message;
+  el.className = "toast show";
 
-  element.textContent = message;
-  element.className = "show";
+  clearTimeout(el._timer);
 
-  setTimeout(() => {
-    element.className = "";
+  el._timer = setTimeout(() => {
+    el.className = "toast";
   }, 2500);
 }
+
+function addMeal(meal) {
+  const m = {
+    name: String(meal.name || "Repas"),
+    kcal: Math.round(num(meal.kcal)),
+    p: Math.round(num(meal.p)),
+    c: Math.round(num(meal.c)),
+    f: Math.round(num(meal.f))
+  };
+
+  s.meals.push(m);
+
+  s.eaten += m.kcal;
+  s.protein += m.p;
+  s.carbs += m.c;
+  s.fat += m.f;
+
+  save();
+  render();
+
+  toast(`${m.name} ajouté au journal`);
+}
+
+function deleteMeal(index) {
+  const m = s.meals[index];
+
+  if (!m) return;
+
+  s.eaten -= num(m.kcal);
+  s.protein -= num(m.p);
+  s.carbs -= num(m.c);
+  s.fat -= num(m.f);
+
+  s.eaten = Math.max(0, s.eaten);
+  s.protein = Math.max(0, s.protein);
+  s.carbs = Math.max(0, s.carbs);
+  s.fat = Math.max(0, s.fat);
+
+  s.meals.splice(index, 1);
+
+  save();
+  render();
+}
+
+function addManualMeal() {
+  const name = prompt("Nom du repas ou aliment ?");
+
+  if (!name) return;
+
+  const kcal = prompt("Calories ?");
+
+  if (kcal === null) return;
+
+  const p = prompt("Protéines (g) ?", "0");
+
+  if (p === null) return;
+
+  const c = prompt("Glucides (g) ?", "0");
+
+  if (c === null) return;
+
+  const f = prompt("Lipides (g) ?", "0");
+
+  if (f === null) return;
+
+  addMeal({
+    name,
+    kcal,
+    p,
+    c,
+    f
+  });
+}
+
+function addWeight() {
+  const value = prompt(
+    "Quel est ton poids actuel en kg ?",
+    s.weight
+  );
+
+  if (value === null) return;
+
+  const weight = Number(
+    String(value).replace(",", ".")
+  );
+
+  if (!Number.isFinite(weight) || weight <= 0) {
+    toast("Poids invalide");
+    return;
+  }
+
+  s.weight = weight;
+
+  s.weights.push({
+    weight,
+    date: new Date().toISOString()
+  });
+
+  save();
+  render();
+
+  toast(`${weight} kg enregistrés`);
+}
+
+function deleteWeight(index) {
+  s.weights.splice(index, 1);
+
+  if (s.weights.length) {
+    s.weight = s.weights[
+      s.weights.length - 1
+    ].weight;
+  }
+
+  save();
+  render();
+}
+
+function editSettings() {
+  const goal = prompt(
+    "Objectif de poids (kg)",
+    s.goal
+  );
+
+  if (goal === null) return;
+
+  const kcal = prompt(
+    "Objectif calories quotidien",
+    s.kcal
+  );
+
+  if (kcal === null) return;
+
+  const g = Number(
+    String(goal).replace(",", ".")
+  );
+
+  const k = Number(
+    String(kcal).replace(",", ".")
+  );
+
+  if (!Number.isFinite(g) || g <= 0) {
+    toast("Objectif de poids invalide");
+    return;
+  }
+
+  if (!Number.isFinite(k) || k <= 0) {
+    toast("Objectif calories invalide");
+    return;
+  }
+
+  s.goal = g;
+  s.kcal = k;
+
+  save();
+  render();
+
+  toast("Réglages enregistrés");
+}
+
+function resetDay() {
+  if (!confirm(
+    "Réinitialiser les calories et macros du jour ?"
+  )) {
+    return;
+  }
+
+  s.eaten = 0;
+  s.protein = 0;
+  s.carbs = 0;
+  s.fat = 0;
+  s.meals = [];
+
+  save();
+  render();
+}
+
+function resetAll() {
+  if (!confirm(
+    "ATTENTION : supprimer toutes les données de MyWeight Coach ?"
+  )) {
+    return;
+  }
+
+  localStorage.removeItem(KEY);
+
+  s = {
+    ...defaults,
+    meals: [],
+    weights: [],
+    recipes: []
+  };
+
+  render();
+
+  toast("Données supprimées");
+}
+
+function startAIConversation(
+  mode,
+  firstMessage = ""
+) {
+  aiConversation = {
+    mode,
+    messages: [],
+    result: null,
+    loading: false
+  };
+
+  if (firstMessage) {
+    aiConversation.messages.push({
+      role: "user",
+      text: firstMessage
+    });
+
+    sendAIMessage();
+  }
+
+  render();
+}
+
+function closeAIConversation() {
+  aiConversation = null;
+  render();
+}
+
+function renderAIConversation() {
+  if (!aiConversation) return "";
+
+  const title =
+    aiConversation.mode === "recipe"
+      ? "🍳 Création d'une recette"
+      : "🥗 Analyse de ton repas";
+
+  const messages =
+    aiConversation.messages
+      .map(m => {
+        const cls =
+          m.role === "user"
+            ? "user"
+            : "ai";
+
+        return `
+          <div class="ai-message ${cls}">
+            ${esc(m.text).replaceAll("\n", "<br>")}
+          </div>
+        `;
+      })
+      .join("");
+
+  let result = "";
+
+  if (aiConversation.result?.ready) {
+    const r = aiConversation.result.item;
+
+    if (aiConversation.mode === "meal") {
+      result = `
+        <div class="ai-result">
+          <h3>${esc(r.name)}</h3>
+
+          <div class="nutrition">
+            <strong>${Math.round(num(r.kcal))} kcal</strong>
+            <span>Prot. ${Math.round(num(r.p))} g</span>
+            <span>Gluc. ${Math.round(num(r.c))} g</span>
+            <span>Lip. ${Math.round(num(r.f))} g</span>
+          </div>
+
+          <button
+            class="primary"
+            onclick="confirmAIMeal()"
+          >
+            Ajouter au journal
+          </button>
+
+          <button
+            class="secondary"
+            onclick="closeAIConversation()"
+          >
+            Annuler
+          </button>
+        </div>
+      `;
+    }
+
+    if (aiConversation.mode === "recipe") {
+      result = `
+        <div class="ai-result">
+          <h3>${esc(r.name)}</h3>
+
+          <div class="nutrition">
+            <strong>
+              ${Math.round(num(r.kcal))} kcal / portion
+            </strong>
+
+            <span>
+              Prot. ${Math.round(num(r.p))} g
+            </span>
+
+            <span>
+              Gluc. ${Math.round(num(r.c))} g
+            </span>
+
+            <span>
+              Lip. ${Math.round(num(r.f))} g
+            </span>
+          </div>
+
+          <p>
+            <strong>
+              ${Math.max(
+                1,
+                Math.round(num(r.servings) || 1)
+              )} portions
+            </strong>
+          </p>
+
+          ${
+            Array.isArray(r.ingredients) &&
+            r.ingredients.length
+              ? `
+                <ul>
+                  ${r.ingredients
+                    .map(i => `<li>${esc(i)}</li>`)
+                    .join("")}
+                </ul>
+              `
+              : ""
+          }
+
+          <button
+            class="primary"
+            onclick="confirmAIRecipe()"
+          >
+            Créer la recette
+          </button>
+
+          <button
+            class="secondary"
+            onclick="closeAIConversation()"
+          >
+            Annuler
+          </button>
+        </div>
+      `;
+    }
+  }
+
+  return `
+    <section class="ai-panel">
+
+      <div class="ai-header">
+        <h2>${title}</h2>
+
+        <button
+          class="icon-button"
+          onclick="closeAIConversation()"
+        >
+          ✕
+        </button>
+      </div>
+
+      <div class="ai-messages">
+        ${
+          messages ||
+          `
+            <div class="ai-message ai">
+              Que veux-tu préparer ou analyser ?
+            </div>
+          `
+        }
+      </div>
+
+      ${
+        aiConversation.loading
+          ? `
+            <div class="ai-loading">
+              ⏳ Gemini réfléchit…
+            </div>
+          `
+          : ""
+      }
+
+      ${result}
+
+      ${
+        !aiConversation.result?.ready
+          ? `
+            <div class="ai-input-row">
+
+              <input
+                id="aiInput"
+                type="text"
+                placeholder="${
+                  aiConversation.mode === "recipe"
+                    ? "Ex. 2 personnes, 200 g de pâtes..."
+                    : "Ex. J'ai mangé une pomme..."
+                }"
+                onkeydown="
+                  if(event.key==='Enter')
+                  sendAIInput()
+                "
+              >
+
+              <button
+                class="primary"
+                onclick="sendAIInput()"
+              >
+                Envoyer
+              </button>
+
+            </div>
+
+            <button
+              class="secondary full"
+              onclick="startVoiceConversation()"
+            >
+              🎙️ Parler
+            </button>
+
+            <button
+              class="secondary full"
+              onclick="closeAIConversation()"
+            >
+              Fermer la conversation
+            </button>
+          `
+          : ""
+      }
+
+    </section>
+  `;
+}
+
+function updateAIMessages() {
+  const panel =
+    document.querySelector(".ai-panel");
+
+  if (panel) {
+    panel.outerHTML =
+      renderAIConversation();
+  }
+}
+
+function sendAIInput() {
+  const input =
+    document.getElementById("aiInput");
+
+  if (!input) return;
+
+  const text = input.value.trim();
+
+  if (!text) return;
+
+  aiConversation.messages.push({
+    role: "user",
+    text
+  });
+
+  sendAIMessage();
+}
+
+function startVoiceConversation() {
+  if (
+    !("SpeechRecognition" in window) &&
+    !("webkitSpeechRecognition" in window)
+  ) {
+    toast(
+      "La reconnaissance vocale n'est pas disponible"
+    );
+    return;
+  }
+
+  const Recognition =
+    window.SpeechRecognition ||
+    window.webkitSpeechRecognition;
+
+  const rec = new Recognition();
+
+  rec.lang = "fr-FR";
+  rec.interimResults = false;
+  rec.maxAlternatives = 1;
+
+  toast("🎙️ Je t'écoute…");
+
+  rec.onresult = event => {
+    const text =
+      event.results[0][0].transcript;
+
+    aiConversation.messages.push({
+      role: "user",
+      text
+    });
+
+    sendAIMessage();
+  };
+
+  rec.onerror = () => {
+    toast(
+      "Impossible d'utiliser le microphone"
+    );
+  };
+
+  rec.start();
+}
+
+async function sendAIMessage() {
+  if (
+    !aiConversation ||
+    aiConversation.loading
+  ) {
+    return;
+  }
+
+  aiConversation.loading = true;
+  updateAIMessages();
+
+  try {
+    const data = await askAI({
+      mode: aiConversation.mode,
+      history: aiConversation.messages
+    });
+
+    let answer = data;
+
+    if (typeof data === "string") {
+      try {
+        answer = JSON.parse(data);
+      } catch {
+        answer = {
+          type: "message",
+          message: data,
+          ready: false
+        };
+      }
+    }
+
+    if (
+      !answer ||
+      typeof answer !== "object"
+    ) {
+      throw new Error(
+        "Réponse IA invalide"
+      );
+    }
+
+    if (answer.message) {
+      aiConversation.messages.push({
+        role: "assistant",
+        text: answer.message
+      });
+    }
+
+    aiConversation.result = answer;
+
+  } catch (error) {
+
+    console.error(error);
+
+    aiConversation.messages.push({
+      role: "assistant",
+      text:
+        error.message ||
+        "Une erreur est survenue avec l'intelligence artificielle."
+    });
+  }
+
+  aiConversation.loading = false;
+
+  updateAIMessages();
+}
+
+async function askAI(payload) {
+  const response = await fetch(
+    AI_URL,
+    {
+      method: "POST",
+
+      headers: {
+        "Content-Type": "application/json"
+      },
+
+      body: JSON.stringify(payload)
+    }
+  );
+
+  const data =
+    await response.json();
+
+  if (!response.ok) {
+    throw new Error(
+      data.error || "Erreur IA"
+    );
+  }
+
+  let answer = data.answer;
+
+  if (typeof answer === "string") {
+    try {
+      answer = JSON.parse(answer);
+    } catch {
+      return answer;
+    }
+  }
+
+  return answer;
+}
+
+function confirmAIMeal() {
+  if (
+    !aiConversation?.result?.item
+  ) {
+    return;
+  }
+
+  addMeal(
+    aiConversation.result.item
+  );
+
+  aiConversation = null;
+
+  render();
+}
+function confirmAIRecipe() {
+  if (!aiConversation?.result?.item) {
+    return;
+  }
+
+  const r = aiConversation.result.item;
+
+  const recipe = {
+    name: String(r.name || "Recette"),
+    kcal: Math.round(num(r.kcal)),
+    p: Math.round(num(r.p)),
+    c: Math.round(num(r.c)),
+    f: Math.round(num(r.f)),
+    servings: Math.max(
+      1,
+      Math.round(num(r.servings) || 1)
+    ),
+    ingredients: Array.isArray(r.ingredients)
+      ? r.ingredients.map(String)
+      : []
+  };
+
+  s.recipes.push(recipe);
+
+  save();
+
+  aiConversation = null;
+
+  render();
+
+  toast("Recette créée");
+}
+
+function createRecipe() {
+  startAIConversation("recipe");
+}
+
+function addRecipeToJournal(index) {
+  const recipe = s.recipes[index];
+
+  if (!recipe) return;
+
+  addMeal({
+    name: `${recipe.name} — 1 portion`,
+    kcal: recipe.kcal,
+    p: recipe.p,
+    c: recipe.c,
+    f: recipe.f
+  });
+}
+
+function editRecipe(index) {
+  const r = s.recipes[index];
+
+  if (!r) return;
+
+  const name = prompt(
+    "Nom de la recette",
+    r.name
+  );
+
+  if (name === null) return;
+
+  const kcal = prompt(
+    "Calories par portion",
+    r.kcal
+  );
+
+  if (kcal === null) return;
+
+  const p = prompt(
+    "Protéines par portion (g)",
+    r.p
+  );
+
+  if (p === null) return;
+
+  const c = prompt(
+    "Glucides par portion (g)",
+    r.c
+  );
+
+  if (c === null) return;
+
+  const f = prompt(
+    "Lipides par portion (g)",
+    r.f
+  );
+
+  if (f === null) return;
+
+  r.name = name;
+  r.kcal = Math.round(num(kcal));
+  r.p = Math.round(num(p));
+  r.c = Math.round(num(c));
+  r.f = Math.round(num(f));
+
+  save();
+  render();
+
+  toast("Recette modifiée");
+}
+
+function deleteRecipe(index) {
+  if (!confirm(
+    "Supprimer cette recette ?"
+  )) {
+    return;
+  }
+
+  s.recipes.splice(index, 1);
+
+  save();
+  render();
+}
+
+function voice() {
+  if (
+    !("SpeechRecognition" in window) &&
+    !("webkitSpeechRecognition" in window)
+  ) {
+    toast(
+      "Reconnaissance vocale indisponible"
+    );
+    return;
+  }
+
+  const Recognition =
+    window.SpeechRecognition ||
+    window.webkitSpeechRecognition;
+
+  const rec = new Recognition();
+
+  rec.lang = "fr-FR";
+  rec.interimResults = false;
+  rec.maxAlternatives = 1;
+
+  toast("🎙️ Je t'écoute…");
+
+  rec.onresult = event => {
+    const text =
+      event.results[0][0].transcript;
+
+    const weightMatch = text.match(
+      /(?:poids|pèse|pesée|peser).*?(\d+[,.]?\d*)\s*(?:kg|kilo|kilos)?/i
+    );
+
+    if (weightMatch) {
+      const weight =
+        Number(
+          weightMatch[1].replace(",", ".")
+        );
+
+      if (weight > 0) {
+        s.weight = weight;
+
+        s.weights.push({
+          weight,
+          date: new Date().toISOString()
+        });
+
+        save();
+        render();
+
+        toast(
+          `${weight} kg enregistrés`
+        );
+
+        return;
+      }
+    }
+
+    startAIConversation(
+      "meal",
+      text
+    );
+  };
+
+  rec.onerror = () => {
+    toast("Erreur microphone");
+  };
+
+  rec.start();
+}
+
+function showPage(page) {
+  document
+    .querySelectorAll(".page")
+    .forEach(el => {
+      el.style.display = "none";
+    });
+
+  const target =
+    document.getElementById(
+      `page-${page}`
+    );
+
+  if (target) {
+    target.style.display = "block";
+  }
+
+  document
+    .querySelectorAll(".nav-button")
+    .forEach(btn => {
+      btn.classList.toggle(
+        "active",
+        btn.dataset.page === page
+      );
+    });
+}
+
+function renderHome() {
+  const remaining =
+    Math.max(
+      0,
+      s.kcal - s.eaten
+    );
+
+  return `
+    <div
+      class="page"
+      id="page-home"
+    >
+
+      <section class="hero">
+        <h1>MyWeight Coach</h1>
+        <p>
+          Ton coach alimentaire personnel
+        </p>
+      </section>
+
+      <section class="card">
+        <h2>Aujourd'hui</h2>
+
+        <div class="big-number">
+          ${Math.round(s.eaten)}
+          <small>
+            / ${Math.round(s.kcal)} kcal
+          </small>
+        </div>
+
+        <p>
+          Il te reste
+          <strong>
+            ${Math.round(remaining)} kcal
+          </strong>.
+        </p>
+
+        <div class="macros">
+
+          <div>
+            <strong>
+              ${Math.round(s.protein)} g
+            </strong>
+            <span>Protéines</span>
+          </div>
+
+          <div>
+            <strong>
+              ${Math.round(s.carbs)} g
+            </strong>
+            <span>Glucides</span>
+          </div>
+
+          <div>
+            <strong>
+              ${Math.round(s.fat)} g
+            </strong>
+            <span>Lipides</span>
+          </div>
+
+        </div>
+      </section>
+
+      <section class="card">
+
+        <h2>Poids</h2>
+
+        <div class="big-number">
+          ${s.weight.toFixed(1)}
+          <small>kg</small>
+        </div>
+
+        <p>
+          Objectif :
+          <strong>
+            ${s.goal} kg
+          </strong>
+        </p>
+
+        <button
+          class="primary full"
+          onclick="addWeight()"
+        >
+          ⚖️ Enregistrer mon poids
+        </button>
+
+      </section>
+
+      <section class="actions">
+
+        <button
+          class="primary"
+          onclick="voice()"
+        >
+          🎙️ Parler au coach
+        </button>
+
+        <button
+          class="secondary"
+          onclick="addManualMeal()"
+        >
+          ➕ Ajouter un repas
+        </button>
+
+      </section>
+
+      ${
+        aiConversation
+          ? renderAIConversation()
+          : ""
+      }
+
+      ${renderRecipesSection()}
+
+    </div>
+  `;
+}
+
+function renderJournal() {
+  return `
+    <div
+      class="page"
+      id="page-journal"
+    >
+
+      <section class="card">
+
+        <h1>📖 Journal</h1>
+
+        <div class="big-number">
+          ${Math.round(s.eaten)}
+          <small>
+            / ${Math.round(s.kcal)} kcal
+          </small>
+        </div>
+
+        ${
+          s.meals.length
+            ? `
+              <div class="meal-list">
+
+                ${s.meals
+                  .map(
+                    (m, i) => `
+                      <div class="meal">
+
+                        <div>
+                          <strong>
+                            ${esc(m.name)}
+                          </strong>
+
+                          <small>
+                            ${m.kcal} kcal ·
+                            P ${m.p} g ·
+                            G ${m.c} g ·
+                            L ${m.f} g
+                          </small>
+                        </div>
+
+                        <button
+                          class="danger"
+                          onclick="deleteMeal(${i})"
+                        >
+                          🗑️
+                        </button>
+
+                      </div>
+                    `
+                  )
+                  .join("")}
+
+              </div>
+            `
+            : `
+              <p>
+                Aucun repas enregistré
+                aujourd'hui.
+              </p>
+            `
+        }
+
+        <button
+          class="secondary full"
+          onclick="resetDay()"
+        >
+          Réinitialiser la journée
+        </button>
+
+      </section>
+
+      <section class="card">
+
+        <h2>
+          ⚖️ Historique du poids
+        </h2>
+
+        ${
+          s.weights.length
+            ? `
+              <div class="weight-list">
+
+                ${s.weights
+                  .slice()
+                  .reverse()
+                  .map(
+                    (w, reverseIndex) => {
+
+                      const index =
+                        s.weights.length -
+                        1 -
+                        reverseIndex;
+
+                      return `
+                        <div class="meal">
+
+                          <div>
+
+                            <strong>
+                              ${Number(
+                                w.weight
+                              ).toFixed(1)} kg
+                            </strong>
+
+                            <small>
+                              ${new Date(
+                                w.date
+                              ).toLocaleDateString(
+                                "fr-FR"
+                              )}
+                            </small>
+
+                          </div>
+
+                          <button
+                            class="danger"
+                            onclick="deleteWeight(${index})"
+                          >
+                            🗑️
+                          </button>
+
+                        </div>
+                      `;
+                    }
+                  )
+                  .join("")}
+
+              </div>
+            `
+            : `
+              <p>
+                Aucun historique.
+              </p>
+            `
+        }
+
+      </section>
+
+    </div>
+  `;
+}
+
+function renderRecipesSection() {
+  return `
+    <section class="card">
+
+      <div class="section-title">
+
+        <h2>
+          🍳 Mes recettes
+        </h2>
+
+        <button
+          class="primary"
+          onclick="createRecipe()"
+        >
+          + Créer
+        </button>
+
+      </div>
+
+      ${
+        s.recipes.length
+          ? `
+            <div class="recipe-list">
+
+              ${s.recipes
+                .map(
+                  (r, i) => `
+                    <div class="recipe">
+
+                      <div>
+
+                        <strong>
+                          ${esc(r.name)}
+                        </strong>
+
+                        <small>
+                          ${r.kcal} kcal / portion ·
+                          P ${r.p} g ·
+                          G ${r.c} g ·
+                          L ${r.f} g
+                        </small>
+
+                      </div>
+
+                      <div class="recipe-actions">
+
+                        <button
+                          class="primary"
+                          onclick="addRecipeToJournal(${i})"
+                        >
+                          +1
+                        </button>
+
+                        <button
+                          class="secondary"
+                          onclick="editRecipe(${i})"
+                        >
+                          ✏️
+                        </button>
+
+                        <button
+                          class="danger"
+                          onclick="deleteRecipe(${i})"
+                        >
+                          🗑️
+                        </button>
+
+                      </div>
+
+                    </div>
+                  `
+                )
+                .join("")}
+
+            </div>
+          `
+          : `
+            <p>
+              Aucune recette enregistrée.
+              Crée ta première recette
+              avec Gemini.
+            </p>
+          `
+      }
+
+    </section>
+  `;
+}
+
+function renderSettings() {
+  return `
+    <div
+      class="page"
+      id="page-settings"
+    >
+
+      <section class="card">
+
+        <h1>
+          ⚙️ Réglages
+        </h1>
+
+        <div class="setting">
+          <span>
+            Poids actuel
+          </span>
+
+          <strong>
+            ${s.weight} kg
+          </strong>
+        </div>
+
+        <div class="setting">
+          <span>
+            Objectif de poids
+          </span>
+
+          <strong>
+            ${s.goal} kg
+          </strong>
+        </div>
+
+        <div class="setting">
+          <span>
+            Objectif calories
+          </span>
+
+          <strong>
+            ${s.kcal} kcal
+          </strong>
+        </div>
+
+        <button
+          class="primary full"
+          onclick="editSettings()"
+        >
+          Modifier mes objectifs
+        </button>
+
+      </section>
+
+      <section class="card">
+
+        <h2>
+          💾 Données
+        </h2>
+
+        <button
+          class="secondary full"
+          onclick="exportData()"
+        >
+          Exporter mes données
+        </button>
+
+        <button
+          class="secondary full"
+          onclick="importData()"
+        >
+          Importer mes données
+        </button>
+
+        <button
+          class="danger full"
+          onclick="resetAll()"
+        >
+          Supprimer toutes mes données
+        </button>
+
+      </section>
+
+    </div>
+  `;
+}
+
+function exportData() {
+  const blob = new Blob(
+    [
+      JSON.stringify(
+        s,
+        null,
+        2
+      )
+    ],
+    {
+      type: "application/json"
+    }
+  );
+
+  const url =
+    URL.createObjectURL(blob);
+
+  const a =
+    document.createElement("a");
+
+  a.href = url;
+
+  a.download =
+    "myweight-coach-backup.json";
+
+  a.click();
+
+  URL.revokeObjectURL(url);
+}
+
+function importData() {
+  const input =
+    document.createElement("input");
+
+  input.type = "file";
+  input.accept =
+    "application/json";
+
+  input.onchange = async () => {
+
+    const file =
+      input.files?.[0];
+
+    if (!file) return;
+
+    try {
+
+      const imported =
+        JSON.parse(
+          await file.text()
+        );
+
+      s = {
+        ...defaults,
+        ...imported,
+
+        meals:
+          Array.isArray(
+            imported.meals
+          )
+            ? imported.meals
+            : [],
+
+        weights:
+          Array.isArray(
+            imported.weights
+          )
+            ? imported.weights
+            : [],
+
+        recipes:
+          Array.isArray(
+            imported.recipes
+          )
+            ? imported.recipes
+            : []
+      };
+
+      save();
+      render();
+
+      toast(
+        "Données importées"
+      );
+
+    } catch {
+
+      toast(
+        "Fichier invalide"
+      );
+    }
+  };
+
+  input.click();
+}
+
+function render() {
+  const app =
+    document.getElementById(
+      "app"
+    );
+
+  if (!app) return;
+
+  app.innerHTML = `
+    ${renderHome()}
+    ${renderJournal()}
+    ${renderSettings()}
+
+    <nav class="bottom-nav">
+
+      <button
+        class="nav-button active"
+        data-page="home"
+        onclick="showPage('home')"
+      >
+        🏠
+        <span>
+          Accueil
+        </span>
+      </button>
+
+      <button
+        class="nav-button"
+        data-page="journal"
+        onclick="showPage('journal')"
+      >
+        📖
+        <span>
+          Journal
+        </span>
+      </button>
+
+      <button
+        class="nav-button"
+        data-page="settings"
+        onclick="showPage('settings')"
+      >
+        ⚙️
+        <span>
+          Réglages
+        </span>
+      </button>
+
+    </nav>
+  `;
+
+  showPage("home");
+}
+
+window.addMeal =
+  addMeal;
+
+window.addWeight =
+  addWeight;
+
+window.deleteMeal =
+  deleteMeal;
+
+window.deleteWeight =
+  deleteWeight;
+
+window.addManualMeal =
+  addManualMeal;
+
+window.resetDay =
+  resetDay;
+
+window.resetAll =
+  resetAll;
+
+window.editSettings =
+  editSettings;
+
+window.startAIConversation =
+  startAIConversation;
+
+window.closeAIConversation =
+  closeAIConversation;
+
+window.sendAIInput =
+  sendAIInput;
+
+window.startVoiceConversation =
+  startVoiceConversation;
+
+window.confirmAIMeal =
+  confirmAIMeal;
+
+window.confirmAIRecipe =
+  confirmAIRecipe;
+
+window.createRecipe =
+  createRecipe;
+
+window.addRecipeToJournal =
+  addRecipeToJournal;
+
+window.editRecipe =
+  editRecipe;
+
+window.deleteRecipe =
+  deleteRecipe;
+
+window.voice =
+  voice;
+
+window.showPage =
+  showPage;
+
+window.exportData =
+  exportData;
+
+window.importData =
+  importData;
 
 render();
