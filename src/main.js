@@ -645,7 +645,15 @@ async function askAI(payload) {
         "Content-Type": "application/json"
       },
 
-      body: JSON.stringify(payload)
+      body: JSON.stringify({
+        mode:
+          payload.mode || "meal",
+
+        messages:
+          Array.isArray(payload.messages)
+            ? payload.messages
+            : []
+      })
     }
   );
 
@@ -658,15 +666,14 @@ async function askAI(payload) {
     );
   }
 
-  let answer = data.answer;
-
-  if (typeof answer === "string") {
-    try {
-      answer = JSON.parse(answer);
-    } catch {
-      return answer;
-    }
+  if (!data.result) {
+    throw new Error(
+      "Réponse IA invalide"
+    );
   }
+
+  return data.result;
+}
 
   return answer;
 }
