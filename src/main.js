@@ -10,7 +10,7 @@ let currentConversationId = null;
 // Fonction pour envoyer un message au Worker
 async function sendMessageToWorker(message) {
   try {
-    const response = await fetch('https://votre-worker.votre-sous-domaine.workers.dev/api/chat', {
+    const response = await fetch('https://myweight-ai.jallyn-lullo.workers.dev/', {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
       body: JSON.stringify({
