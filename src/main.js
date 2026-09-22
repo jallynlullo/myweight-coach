@@ -949,70 +949,58 @@ async function sendAIMessage() {
 
 async function askAI(payload) {
 
-  const response =
-    await fetch(
-      AI_URL,
-      {
-        method: "POST",
+  const messages = Array.isArray(payload.messages)
+    ? payload.messages.map(message => ({
+        role: message.role,
+        content:
+          typeof message.content === "string"
+            ? message.content
+            : typeof message.text === "string"
+              ? message.text
+              : ""
+      }))
+    : [];
 
-        headers: {
-          "Content-Type":
-            "application/json"
-        },
+  const response = await fetch(
+    AI_URL,
+    {
+      method: "POST",
 
-        body: JSON.stringify({
-          mode:
-            payload.mode ||
-            "meal",
+      headers: {
+        "Content-Type": "application/json"
+      },
 
-          messages:
-            Array.isArray(
-              payload.messages
-            )
-              ? payload.messages
-              : []
-        })
-      }
-    );
-
+      body: JSON.stringify({
+        mode: payload.mode || "meal",
+        messages
+      })
+    }
+  );
 
   let data;
 
-
   try {
-
-    data =
-      await response.json();
-
+    data = await response.json();
   } catch {
-
     throw new Error(
       "Réponse du serveur invalide"
     );
   }
 
-
   if (!response.ok) {
-
     throw new Error(
-      data.error ||
-      "Erreur IA"
+      data.error || "Erreur IA"
     );
   }
 
-
   if (!data.result) {
-
     throw new Error(
       "Réponse IA invalide"
     );
   }
 
-
   return data.result;
 }
-
-
 /* =========================
    CONFIRMATION REPAS
 ========================= */
